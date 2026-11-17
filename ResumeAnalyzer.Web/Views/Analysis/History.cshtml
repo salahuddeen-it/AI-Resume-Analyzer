@@ -1,0 +1,131 @@
+@model HistoryViewModel
+@{
+    ViewData["Title"] = "Analysis History";
+}
+
+<div class="container py-4 py-lg-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h1 class="page-title mb-1">Analysis History</h1>
+            <p class="text-muted mb-0">All resumes analysed so far, saved in the database.</p>
+        </div>
+        <a asp-controller="Home" asp-action="Index" class="btn btn-gradient"><i class="bi bi-plus-lg me-1"></i> New Analysis</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card"><div class="card-body d-flex align-items-center gap-3">
+                <div class="kpi-icon bg-indigo"><i class="bi bi-files"></i></div>
+                <div><div class="kpi-value">@Model.TotalCount</div><div class="kpi-label">@(string.IsNullOrWhiteSpace(Model.Search) ? "Total analyses" : "Results found")</div></div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card"><div class="card-body d-flex align-items-center gap-3">
+                <div class="kpi-icon bg-green"><i class="bi bi-speedometer2"></i></div>
+                <div><div class="kpi-value">@Model.AverageScore</div><div class="kpi-label">Average score</div></div>
+            </div></div>
+        </div>
+        <div class="col-lg-6">
+            <form method="get" asp-action="History" class="card glass-card h-100">
+                <div class="card-body d-flex align-items-center gap-2">
+                    <div class="input-group search-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="Search by candidate or file name..." />
+                    </div>
+                    <button class="btn btn-gradient px-4" type="submit">Search</button>
+                    @if (!string.IsNullOrWhiteSpace(Model.Search))
+                    {
+                        <a asp-action="History" class="btn btn-light border" title="Clear"><i class="bi bi-x-lg"></i></a>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="card glass-card">
+            <div class="card-body empty-state text-center py-5">
+                <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                <h5 class="fw-bold">No analyses found</h5>
+                <p class="text-muted">Upload a resume to see its analysis here.</p>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-gradient"><i class="bi bi-cloud-arrow-up me-1"></i> Analyze a resume</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card glass-card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table history-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>File</th>
+                            <th class="text-center">Score</th>
+                            <th class="text-center">Job Match</th>
+                            <th>Date</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="avatar">@(item.CandidateName.Length > 0 ? item.CandidateName[0].ToString().ToUpper() : "?")</div>
+                                        <span class="fw-semibold">@item.CandidateName</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="file-badge @(item.FileType == "PDF" ? "pdf" : "docx")">@item.FileType</span>
+                                    <span class="small text-muted ms-1">@item.FileName</span>
+                                </td>
+                                <td class="text-center"><span class="@ScoreHelper.BadgeClass(item.OverallScore)">@item.OverallScore/100</span></td>
+                                <td class="text-center">
+                                    @if (item.MatchScore.HasValue)
+                                    {
+                                        <span class="@ScoreHelper.BadgeClass(item.MatchScore.Value)">@item.MatchScore%</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                                <td class="small text-muted">@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
+                                <td class="text-end">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-light border"><i class="bi bi-eye"></i> View</a>
+                                    <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline"
+                                          onsubmit="return confirm('Delete this analysis permanently?');">
+                                        <button type="submit" class="btn btn-sm btn-light border text-danger"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item @(Model.Page == 1 ? "disabled" : "")">
+                        <a class="page-link" asp-action="History" asp-route-page="@(Model.Page - 1)" asp-route-search="@Model.Search"><i class="bi bi-chevron-left"></i></a>
+                    </li>
+                    @for (var p = 1; p <= Model.TotalPages; p++)
+                    {
+                        <li class="page-item @(p == Model.Page ? "active" : "")">
+                            <a class="page-link" asp-action="History" asp-route-page="@p" asp-route-search="@Model.Search">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Page == Model.TotalPages ? "disabled" : "")">
+                        <a class="page-link" asp-action="History" asp-route-page="@(Model.Page + 1)" asp-route-search="@Model.Search"><i class="bi bi-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    }
+</div>

@@ -1,0 +1,287 @@
+@model AnalysisDetailsViewModel
+@{
+    var r = Model.Result;
+    var a = Model.Analysis;
+    ViewData["Title"] = r.CandidateName;
+    var score = ScoreHelper.Round(r.OverallScore);
+    var bd = r.ScoreBreakdown ?? new ScoreBreakdown();
+    var bars = new (string Label, string Icon, double Value)[]
+    {
+        ("Skills", "bi-tools", bd.Skills),
+        ("Experience", "bi-briefcase", bd.Experience),
+        ("Education", "bi-mortarboard", bd.Education),
+        ("Formatting & Structure", "bi-layout-text-window", bd.Formatting),
+        ("Impact & Achievements", "bi-graph-up-arrow", bd.Impact)
+    };
+}
+
+<div class="container py-4 py-lg-5">
+
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <a asp-controller="Analysis" asp-action="History" class="back-link no-print"><i class="bi bi-arrow-left"></i> History</a>
+            <h1 class="page-title mb-2">@r.CandidateName</h1>
+            <div class="meta-row">
+                @if (!string.IsNullOrWhiteSpace(r.TargetRole))
+                {
+                    <span><i class="bi bi-person-badge"></i> @r.TargetRole</span>
+                }
+                <span><i class="bi bi-file-earmark-text"></i> @a.FileName · @ScoreHelper.FileSize(a.FileSizeBytes)</span>
+                <span><i class="bi bi-calendar3"></i> @a.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</span>
+                <span><i class="bi bi-cpu"></i> @a.AiProvider</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 no-print">
+            <button type="button" onclick="window.print()" class="btn btn-light border"><i class="bi bi-printer me-1"></i> Print / Save PDF</button>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-gradient"><i class="bi bi-plus-lg me-1"></i> New Analysis</a>
+        </div>
+    </div>
+
+    <!-- Score + breakdown -->
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4 text-center">
+                    <h6 class="card-label">Overall Resume Score</h6>
+                    <div class="score-ring mx-auto my-3" style="--score:@score;--ring-color:@ScoreHelper.Color(score)">
+                        <div class="score-ring-inner">
+                            <span class="score-value" data-count="@score">@score</span>
+                            <span class="score-max">/ 100</span>
+                        </div>
+                    </div>
+                    <span class="@ScoreHelper.BadgeClass(score)">@ScoreHelper.Label(score)</span>
+                    @if (!string.IsNullOrWhiteSpace(r.Summary))
+                    {
+                        <p class="summary-text mt-4 mb-0">@r.Summary</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4">
+                    <h6 class="card-label mb-4">Score Breakdown</h6>
+                    @foreach (var b in bars)
+                    {
+                        var v = ScoreHelper.Round(b.Value);
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="fw-semibold"><i class="bi @b.Icon me-2 text-primary"></i>@b.Label</span>
+                                <span class="fw-bold">@v<small class="text-muted fw-normal">/100</small></span>
+                            </div>
+                            <div class="progress slim-progress">
+                                <div class="progress-bar animated-bar" data-width="@v" style="width:0;background:@ScoreHelper.Color(v)"></div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="row g-3 mt-2 text-center">
+                        <div class="col-4"><div class="stat-tile"><div class="stat-value">@r.Skills.Count</div><div class="stat-label">Skills</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-value">@r.TotalExperienceYears.ToString("0.#")</div><div class="stat-label">Years exp.</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-value">@r.Education.Count</div><div class="stat-label">Qualifications</div></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job match -->
+    @if (r.JobMatch is not null)
+    {
+        var m = ScoreHelper.Round(r.JobMatch.MatchScore);
+        <div class="card glass-card mt-4 match-card">
+            <div class="card-body p-4">
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-3 text-center">
+                        <h6 class="card-label">Job Match</h6>
+                        <div class="score-ring small-ring mx-auto my-2" style="--score:@m;--ring-color:@ScoreHelper.Color(m)">
+                            <div class="score-ring-inner"><span class="score-value">@m%</span></div>
+                        </div>
+                        <span class="@ScoreHelper.BadgeClass(m)">@ScoreHelper.Label(m) fit</span>
+                    </div>
+                    <div class="col-md-9">
+                        @if (!string.IsNullOrWhiteSpace(r.JobMatch.Verdict))
+                        {
+                            <p class="summary-text mb-3"><i class="bi bi-chat-quote text-primary me-1"></i> @r.JobMatch.Verdict</p>
+                        }
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="sub-label text-success"><i class="bi bi-check-circle-fill"></i> Matching skills (@r.JobMatch.MatchingSkills.Count)</div>
+                                <div class="chip-wrap">
+                                    @foreach (var s in r.JobMatch.MatchingSkills)
+                                    {
+                                        <span class="chip chip-success">@s</span>
+                                    }
+                                    @if (!r.JobMatch.MatchingSkills.Any()) { <span class="empty-note">None found</span> }
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sub-label text-danger"><i class="bi bi-x-circle-fill"></i> Missing skills (@r.JobMatch.MissingSkills.Count)</div>
+                                <div class="chip-wrap">
+                                    @foreach (var s in r.JobMatch.MissingSkills)
+                                    {
+                                        <span class="chip chip-danger">@s</span>
+                                    }
+                                    @if (!r.JobMatch.MissingSkills.Any()) { <span class="empty-note">Nothing missing 🎉</span> }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Skills -->
+    <div class="row g-4 mt-0">
+        <div class="col-lg-7">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4">
+                    <h6 class="card-label"><i class="bi bi-tools me-2"></i>Skills Found</h6>
+                    <div class="chip-wrap">
+                        @foreach (var s in r.Skills)
+                        {
+                            <span class="chip chip-primary">@s</span>
+                        }
+                        @if (!r.Skills.Any()) { <span class="empty-note">No skills detected.</span> }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4">
+                    <h6 class="card-label"><i class="bi bi-puzzle me-2"></i>Recommended Skills to Add</h6>
+                    <div class="chip-wrap">
+                        @foreach (var s in r.MissingSkills)
+                        {
+                            <span class="chip chip-warning"><i class="bi bi-plus"></i>@s</span>
+                        }
+                        @if (!r.MissingSkills.Any()) { <span class="empty-note">No major gaps found.</span> }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Experience + Education -->
+    <div class="row g-4 mt-0">
+        <div class="col-lg-7">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4">
+                    <h6 class="card-label"><i class="bi bi-briefcase me-2"></i>Experience</h6>
+                    @if (r.Experience.Any())
+                    {
+                        <ul class="timeline">
+                            @foreach (var e in r.Experience)
+                            {
+                                <li>
+                                    <div class="fw-semibold">@e.Title</div>
+                                    <div class="small text-primary fw-medium">
+                                        @e.Company
+                                        @if (!string.IsNullOrWhiteSpace(e.Duration)) { <span class="text-muted"> · @e.Duration</span> }
+                                    </div>
+                                    @if (e.Highlights?.Any() == true)
+                                    {
+                                        <ul class="small text-muted mt-2 mb-0 ps-3">
+                                            @foreach (var h in e.Highlights) { <li>@h</li> }
+                                        </ul>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="empty-note mb-0">No detailed work experience entries were detected (estimated experience: @r.TotalExperienceYears.ToString("0.#") years).</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card glass-card h-100">
+                <div class="card-body p-4">
+                    <h6 class="card-label"><i class="bi bi-mortarboard me-2"></i>Education</h6>
+                    @if (r.Education.Any())
+                    {
+                        foreach (var ed in r.Education)
+                        {
+                            <div class="edu-item">
+                                <div class="edu-icon"><i class="bi bi-award"></i></div>
+                                <div>
+                                    <div class="fw-semibold">@ed.Degree</div>
+                                    <div class="small text-muted">@ed.Institution @(string.IsNullOrWhiteSpace(ed.Year) ? "" : "· " + ed.Year)</div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="empty-note mb-0">No education details were detected.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality -->
+    <div class="card glass-card mt-4">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="card-label mb-0"><i class="bi bi-clipboard-check me-2"></i>Resume Quality</h6>
+                @if (!string.IsNullOrWhiteSpace(r.ResumeQuality.Rating))
+                {
+                    <span class="quality-pill">@r.ResumeQuality.Rating</span>
+                }
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="sub-label text-success"><i class="bi bi-hand-thumbs-up-fill"></i> Strengths</div>
+                    <ul class="icon-list success">
+                        @foreach (var s in r.ResumeQuality.Strengths) { <li>@s</li> }
+                    </ul>
+                    @if (!r.ResumeQuality.Strengths.Any()) { <span class="empty-note">—</span> }
+                </div>
+                <div class="col-md-6">
+                    <div class="sub-label text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Weaknesses</div>
+                    <ul class="icon-list danger">
+                        @foreach (var w in r.ResumeQuality.Weaknesses) { <li>@w</li> }
+                    </ul>
+                    @if (!r.ResumeQuality.Weaknesses.Any()) { <span class="empty-note">—</span> }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Improvements -->
+    <div class="card glass-card mt-4 improve-card">
+        <div class="card-body p-4">
+            <h6 class="card-label"><i class="bi bi-lightbulb me-2"></i>Suggested Improvements</h6>
+            <ol class="improve-list mb-0">
+                @foreach (var tip in r.Improvements) { <li>@tip</li> }
+            </ol>
+            @if (!r.Improvements.Any()) { <span class="empty-note">No suggestions.</span> }
+        </div>
+    </div>
+
+    <!-- Raw data -->
+    <div class="card glass-card mt-4 no-print">
+        <div class="card-body p-4">
+            <a class="collapse-toggle" data-bs-toggle="collapse" href="#rawText" role="button">
+                <span><i class="bi bi-file-text me-2"></i>Extracted resume text</span><i class="bi bi-chevron-down"></i>
+            </a>
+            <div class="collapse" id="rawText"><pre class="raw-text mt-3 mb-0">@a.ExtractedText</pre></div>
+
+            @if (!string.IsNullOrWhiteSpace(a.JobDescription))
+            {
+                <hr />
+                <a class="collapse-toggle" data-bs-toggle="collapse" href="#jdText" role="button">
+                    <span><i class="bi bi-briefcase me-2"></i>Job description used</span><i class="bi bi-chevron-down"></i>
+                </a>
+                <div class="collapse" id="jdText"><pre class="raw-text mt-3 mb-0">@a.JobDescription</pre></div>
+            }
+        </div>
+    </div>
+</div>
